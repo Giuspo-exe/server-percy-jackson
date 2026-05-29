@@ -161,6 +161,9 @@
 <script>
   const RAW_URL = "https://raw.githubusercontent.com/Giuspo-exe/server-percy-jackson/main/controllo.json";
 
+  const LS_KEY = 'dedalo_tentativi';
+  const MASTER_RESET_HASH = 'eef557c8d2be0744e03becf0215bbf82f71801308e5d89e3598ac45a2fa58e8c'; // password: 9911
+
   let stato = {
     sbloccato: false,
     tentativi: null,
@@ -168,6 +171,17 @@
     fileSegreti: null,
     premioFinale: null
   };
+
+  /* ── Stato server ── */
+  function isOffline() { return stato.dati && stato.dati.status_server !== 'online'; }
+  function bloccatoOffline() {
+    print('[ERRORE] Connessione rifiutata dal remote host. Terminale in sola lettura.', 'error');
+  }
+
+  /* ── LocalStorage helpers ── */
+  function leggiTentativi()        { const v = localStorage.getItem(LS_KEY); return v !== null ? parseInt(v) : null; }
+  function salvaTentativi(n)       { localStorage.setItem(LS_KEY, n); }
+  function cancellaLocalStorage()  { localStorage.removeItem(LS_KEY); }
 
   const term = document.getElementById('terminal');
   const input = document.getElementById('cmd-input');
@@ -226,8 +240,8 @@
     }
   }
 
-  /* ── Boot ── */
-  async function boot() {
+  /* ── Intestazione ASCII ── */
+  function stampaIntestazione() {
     const ascii = [
       "  ____  _____  ___  ____  __    __  _  _  ____",
       " (  _ \\( ___ )(  _)(  _ \\(  )  /__\\( \\/ )/ ___)",
@@ -243,7 +257,27 @@
       term.appendChild(d);
     });
     term.scrollTop = term.scrollHeight;
+  }
 
+  function stampaInfoBoot() {
+    print('');
+    if (stato.dati) {
+      print('[OK]   Connesso al server remoto.', 'info');
+      print(`[INFO] STATUS SERVER: ${stato.dati.status_server.toUpperCase()}`, 'info');
+      print(`[INFO] Contenuti sensibili: CIFRATI (AES-256)`, 'info');
+      print(`[INFO] Tentativi disponibili: ${stato.tentativi}`, 'info');
+      if (stato.sbloccato) print('[INFO] Sistema: SBLOCCATO', 'success');
+    } else {
+      print('[WARN] Nessun dato remoto. Usa  reload  per connetterti.', 'error');
+    }
+    print('');
+    print('Digita  help  per vedere i comandi disponibili.', 'system');
+    print('');
+  }
+
+  /* ── Boot ── */
+  async function boot() {
+    stampaIntestazione();
     print('');
     print('[BOOT] Inizializzazione sistema...', 'system');
     print('[BOOT] Connessione al server remoto...', 'system');
@@ -253,11 +287,29 @@
       const res = await fetch(RAW_URL + '?_=' + Date.now());
       if (!res.ok) throw new Error('HTTP ' + res.status);
       stato.dati = await res.json();
-      stato.tentativi = stato.dati.tentativi_disponibili;
+      // LocalStorage ha priorità sul valore remoto
+      const salvati = leggiTentativi();
+      stato.tentativi = salvati !== null ? salvati : stato.dati.tentativi_disponibili;
       print('[OK]   Dati ricevuti da GitHub.', 'info');
       print(`[INFO] STATUS SERVER: ${stato.dati.status_server.toUpperCase()}`, 'info');
       print(`[INFO] Contenuti sensibili: CIFRATI (AES-256)`, 'info');
-      print(`[INFO] Tentativi disponibili: ${stato.tentativi}`, 'info');
+      if (salvati !== null) {
+        print(`[INFO] Tentativi rimasti (da sessione precedente): ${stato.tentativi}`, stato.tentativi > 0 ? 'info' : 'error');
+      } else {
+        print(`[INFO] Tentativi disponibili: ${stato.tentativi}`, 'info');
+      }
+      if (isOffline()) {
+        print('', '');
+        print('██ [CRITICAL ERROR] ████████████████████████████████████████████', 'error');
+        print('   CONNESSIONE AL SERVER SOSPESA DA REMOTO. SISTEMA INACCESSIBILE.', 'error');
+        print('   Usa  reload  per riprovare quando il server torna online.', 'error');
+        print('████████████████████████████████████████████████████████████████', 'error');
+      } else if (stato.tentativi <= 0) {
+        print('', '');
+        print('██████████ HARDWARE LOCKDOWN ██████████', 'error');
+        print('Tentativi esauriti. Contattare il Master per un codice di ripristino.', 'error');
+        print('███████████████████████████████████████', 'error');
+      }
       aggiornaUI();
     } catch(e) {
       print('[ERR]  Impossibile raggiungere il server remoto.', 'error');
@@ -301,10 +353,17 @@
 
     async hack(args) {
       if (!stato.dati) { print('[ERR] Nessun dato remoto. Usa reload prima.', 'error'); return; }
+      if (isOffline()) { bloccatoOffline(); return; }
       if (stato.sbloccato) { print('[OK] Sistema già sbloccato.', 'success'); return; }
       const codice = args[0];
       if (!codice) { print('[ERR] Uso: hack [codice]', 'error'); return; }
-      if (stato.tentativi <= 0) { print('[ERR] Tentativi esauriti. Contatta il Master.', 'error'); return; }
+      if (stato.tentativi <= 0) {
+        print('', '');
+        print('██████████ HARDWARE LOCKDOWN ██████████', 'error');
+        print('Tentativi esauriti. Contattare il Master per un codice di ripristino.', 'error');
+        print('███████████████████████████████████████', 'error');
+        return;
+      }
 
       print(`[HACK] Elaborazione codice "${codice}"...`, 'system');
       await new Promise(r => setTimeout(r, 600));
@@ -314,8 +373,14 @@
 
       if (hash !== stato.dati.codice_segreto_hash) {
         stato.tentativi--;
+        salvaTentativi(stato.tentativi);
         print(`[FAIL] Codice errato. Tentativi rimasti: ${stato.tentativi}`, 'error');
-        if (stato.tentativi <= 0) print('[WARN] Nessun tentativo rimasto!', 'error');
+        if (stato.tentativi <= 0) {
+          print('', '');
+          print('██████████ HARDWARE LOCKDOWN ██████████', 'error');
+          print('Tentativi esauriti. Contattare il Master per un codice di ripristino.', 'error');
+          print('███████████████████████████████████████', 'error');
+        }
         aggiornaUI();
         return;
       }
@@ -345,6 +410,7 @@
     },
 
     ls() {
+      if (isOffline()) { bloccatoOffline(); return; }
       if (!stato.sbloccato) { print('[ERR] Sistema bloccato. Usa hack prima.', 'error'); return; }
       print('');
       print('── FILE SEGRETI ──────────────────────────────', 'secret');
@@ -354,6 +420,7 @@
     },
 
     cat(args) {
+      if (isOffline()) { bloccatoOffline(); return; }
       if (!stato.sbloccato) { print('[ERR] Sistema bloccato. Usa hack prima.', 'error'); return; }
       const nome = args.join(' ');
       if (!nome) { print('[ERR] Uso: cat [nomefile]', 'error'); return; }
@@ -375,15 +442,49 @@
         const res = await fetch(RAW_URL + '?_=' + Date.now());
         if (!res.ok) throw new Error('HTTP ' + res.status);
         stato.dati = await res.json();
-        stato.tentativi = stato.dati.tentativi_disponibili;
-        print('[OK] Dati aggiornati.', 'success');
+        // LocalStorage comanda sempre — il JSON dà solo il valore iniziale assoluto
+        const salvati = leggiTentativi();
+        stato.tentativi = salvati !== null ? salvati : stato.dati.tentativi_disponibili;
+        if (isOffline()) {
+          print('', '');
+          print('██ [CRITICAL ERROR] ████████████████████████████████████████████', 'error');
+          print('   CONNESSIONE AL SERVER SOSPESA DA REMOTO. SISTEMA INACCESSIBILE.', 'error');
+          print('   Riprova con  reload  quando il server torna online.', 'error');
+          print('████████████████████████████████████████████████████████████████', 'error');
+        } else {
+          print('[OK] Dati aggiornati. Server online.', 'success');
+        }
         aggiornaUI();
       } catch(e) {
         print('[ERR] ' + e.message, 'error');
       }
     },
 
-    clear() { term.innerHTML = ''; }
+    clear() {
+      term.innerHTML = '';
+      stampaIntestazione();
+      stampaInfoBoot();
+    },
+
+    async master_reset(args) {
+      const pwd = args[0];
+      if (!pwd) { print('[ERR] Uso: master_reset [codice]', 'error'); return; }
+      const hash = await sha256Hex(pwd);
+      if (hash !== MASTER_RESET_HASH) {
+        print('[ERR] Codice di ripristino non valido.', 'error');
+        return;
+      }
+      cancellaLocalStorage();
+      stato.tentativi = stato.dati ? stato.dati.tentativi_disponibili : 10;
+      stato.sbloccato = false;
+      stato.fileSegreti = null;
+      stato.premioFinale = null;
+      aggiornaUI();
+      print('');
+      print('[MASTER] LocalStorage cancellato. Tentativi ripristinati.', 'success');
+      print(`[MASTER] Tentativi disponibili: ${stato.tentativi}`, 'success');
+      print('');
+    }
   };
 
   /* ── Input handler ── */
