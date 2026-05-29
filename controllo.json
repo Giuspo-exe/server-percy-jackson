@@ -3,11 +3,6 @@
   "status_server": "online",
   "tema_grafico": "standard",
   "tentativi_disponibili": 10,
-  "file_segreti": [
-    {
-      "nome": "diario_dedalo.txt",
-      "contenuto": "Il labirinto si sta risvegliando..."
-    }
-  ],
-  "premio_finale": "Amuleto del Focolare (+10 HP)"
+  "file_segreti_enc": "yOsKlcDws2Z7D1LW4zMo5/b2uYisF4LMQB7fCcvODFZbo1ykfkn/Nm0njTNMLWQSBIqH75uuMsAgmAAmkJdTqXXqs+o8zc8yjetBHw40FNbQyAYew9kbO324wUmVqhiM",
+  "premio_finale_enc": "vevy3Y2vZxDOhYVod5PzAQTqjo36i8nbEU+6NLRF9qg="
 }
