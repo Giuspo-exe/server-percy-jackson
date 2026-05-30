@@ -344,17 +344,7 @@
     term.scrollTop = term.scrollHeight;
   }
 
-  function stampaInfoBoot() {
-    print('');
-    if (stato.dati) {
-      print('[OK]   Connesso al server remoto.', 'info');
-      print(`[INFO] STATUS SERVER: ${stato.dati.status_server.toUpperCase()}`, 'info');
-      print(`[INFO] Contenuti sensibili: CIFRATI (AES-256)`, 'info');
-      print(`[INFO] Tentativi disponibili: ${stato.tentativi}`, 'info');
-      if (stato.sbloccato) print('[INFO] Sistema: SBLOCCATO', 'success');
-    } else {
-      print('[WARN] Nessun dato remoto. Usa  reload  per connetterti.', 'error');
-    }
+  function stampaQuartina() {
     print('');
     print('╔══════════════════════════════════════════════════╗', 'secret');
     print('║       == DISPOSITIVO DI SICUREZZA DEDALO ==      ║', 'secret');
@@ -375,6 +365,20 @@
     print('║  e digita:  hack [codice]                        ║', 'secret');
     print('╚══════════════════════════════════════════════════╝', 'secret');
     print('');
+  }
+
+  function stampaInfoBoot() {
+    print('');
+    if (stato.dati) {
+      print('[OK]   Connesso al server remoto.', 'info');
+      print(`[INFO] STATUS SERVER: ${stato.dati.status_server.toUpperCase()}`, 'info');
+      print(`[INFO] Contenuti sensibili: CIFRATI (AES-256)`, 'info');
+      print(`[INFO] Tentativi disponibili: ${stato.tentativi}`, 'info');
+      if (stato.sbloccato) print('[INFO] Sistema: SBLOCCATO', 'success');
+    } else {
+      print('[WARN] Nessun dato remoto. Usa  reload  per connetterti.', 'error');
+    }
+    stampaQuartina();
     print('Digita  help  per vedere i comandi disponibili.', 'system');
     print('');
   }
@@ -427,7 +431,7 @@
       aggiornaUI();
     }
 
-    print('');
+    stampaQuartina();
     print('Digita  help  per vedere i comandi disponibili.', 'system');
     print('');
     input.focus();
