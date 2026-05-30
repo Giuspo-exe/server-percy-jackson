@@ -178,6 +178,7 @@
   const LS_PREMIO     = 'dedalo_premio_principale_riscosso';
 
   const MASTER_RESET_HASH = 'eef557c8d2be0744e03becf0215bbf82f71801308e5d89e3598ac45a2fa58e8c'; // password: 9911
+  const MAXI_RESET_HASH   = 'b3cddf7a103bb3a88721cb2c7d2b7cb8833b7a95d0a5dc00f3e28e02a99be5b7'; // password: 0711
 
   /* ── Catalogo di fallback: usato quando il server è irraggiungibile ──
      Garantisce che diary/shop/quests/inventory non crashino offline.
@@ -627,6 +628,33 @@
       print('[MASTER] Tentativi di hack ripristinati.', 'success');
       print(`[MASTER] Tentativi disponibili: ${stato.tentativi}`, 'success');
       print('[MASTER] Dracme, sfide e inventario invariati.', 'system');
+      print('');
+    },
+
+    /* ── maxi_reset ───────────────────────────────────────────── */
+    async maxi_reset(args) {
+      const pwd = args[0];
+      if (!pwd) { print('[ERR] Uso: maxi_reset [codice]', 'error'); return; }
+      const hash = await sha256Hex(pwd);
+      if (hash !== MAXI_RESET_HASH) {
+        print('[ERR] Codice non valido.', 'error');
+        return;
+      }
+      // Cancella TUTTO il LocalStorage di gioco
+      cancellaLocalStorage();        // tentativi
+      salvaMonete(0);
+      salvaSfide([]);
+      salvaInventario([]);
+      localStorage.removeItem(LS_PREMIO);
+      // Reset stato in memoria
+      stato.tentativi = stato.dati ? stato.dati.tentativi_disponibili : 10;
+      stato.sbloccato = false;
+      stato.fileSegreti = null;
+      stato.premioFinale = null;
+      aggiornaUI();
+      print('');
+      print('[MAXI RESET] Profilo completamente azzerato.', 'success');
+      print(`[MAXI RESET] Tentativi: ${stato.tentativi} | Dracme: 0 | Sfide: 0 | Inventario: vuoto | Premio: non riscosso`, 'success');
       print('');
     },
 
