@@ -57,7 +57,7 @@
       text-shadow: 0 0 8px var(--green);
       letter-spacing: 2px;
     }
-    #status-bar { display: flex; gap: 20px; font-size: 12px; }
+    #status-bar { display: flex; gap: 20px; font-size: 12px; align-items: center; }
     .status-item { display: flex; gap: 6px; align-items: center; }
     .status-dot {
       width: 8px; height: 8px; border-radius: 50%;
@@ -66,6 +66,12 @@
     }
     .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    #monete-label {
+      color: var(--gold);
+      text-shadow: 0 0 6px var(--gold);
+      letter-spacing: 1px;
+    }
 
     #terminal {
       flex: 1; overflow-y: auto;
@@ -141,6 +147,9 @@
     <div class="status-item">
       <span id="tentativi-label">TENTATIVI: —</span>
     </div>
+    <div class="status-item">
+      <span id="monete-label">DRACME: 0 🪙</span>
+    </div>
   </div>
 </div>
 
@@ -161,7 +170,12 @@
 <script>
   const RAW_URL = "https://raw.githubusercontent.com/Giuspo-exe/server-percy-jackson/main/controllo.json";
 
-  const LS_KEY = 'dedalo_tentativi';
+  /* ── Chiavi LocalStorage ── */
+  const LS_KEY        = 'dedalo_tentativi';
+  const LS_MONETE     = 'dedalo_monete';
+  const LS_SFIDE      = 'dedalo_sfide_risolte';
+  const LS_INVENTARIO = 'dedalo_inventario';
+
   const MASTER_RESET_HASH = 'eef557c8d2be0744e03becf0215bbf82f71801308e5d89e3598ac45a2fa58e8c'; // password: 9911
 
   let stato = {
@@ -178,12 +192,35 @@
     print('[ERRORE] Connessione rifiutata dal remote host. Terminale in sola lettura.', 'error');
   }
 
-  /* ── LocalStorage helpers ── */
-  function leggiTentativi()        { const v = localStorage.getItem(LS_KEY); return v !== null ? parseInt(v) : null; }
-  function salvaTentativi(n)       { localStorage.setItem(LS_KEY, n); }
-  function cancellaLocalStorage()  { localStorage.removeItem(LS_KEY); }
+  /* ── LocalStorage: tentativi (esistente) ── */
+  function leggiTentativi()       { const v = localStorage.getItem(LS_KEY); return v !== null ? parseInt(v) : null; }
+  function salvaTentativi(n)      { localStorage.setItem(LS_KEY, n); }
+  function cancellaLocalStorage() { localStorage.removeItem(LS_KEY); }
 
-  const term = document.getElementById('terminal');
+  /* ── LocalStorage: monete ── */
+  function leggiMonete() { return parseInt(localStorage.getItem(LS_MONETE) || '0'); }
+  function salvaMonete(n) { localStorage.setItem(LS_MONETE, String(n)); }
+
+  /* ── LocalStorage: sfide risolte ── */
+  function leggiSfide() {
+    try { return JSON.parse(localStorage.getItem(LS_SFIDE) || '[]'); } catch { return []; }
+  }
+  function salvaSfide(arr) { localStorage.setItem(LS_SFIDE, JSON.stringify(arr)); }
+
+  /* ── LocalStorage: inventario ── */
+  function leggiInventario() {
+    try { return JSON.parse(localStorage.getItem(LS_INVENTARIO) || '[]'); } catch { return []; }
+  }
+  function salvaInventario(arr) { localStorage.setItem(LS_INVENTARIO, JSON.stringify(arr)); }
+
+  /* ── Inizializzazione persistenza (non sovrascrive mai i valori esistenti) ── */
+  function inizializzaPersistenza() {
+    if (localStorage.getItem(LS_MONETE) === null)     salvaMonete(0);
+    if (localStorage.getItem(LS_SFIDE) === null)      salvaSfide([]);
+    if (localStorage.getItem(LS_INVENTARIO) === null) salvaInventario([]);
+  }
+
+  const term  = document.getElementById('terminal');
   const input = document.getElementById('cmd-input');
 
   /* ── Utility output ── */
@@ -195,7 +232,7 @@
     term.scrollTop = term.scrollHeight;
   }
 
-  /* ── Crypto helpers (AES-256-CBC, stessa logica del server PowerShell) ── */
+  /* ── Crypto helpers (AES-256-CBC) ── */
   async function sha256Bytes(text) {
     return new Uint8Array(
       await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -204,13 +241,13 @@
 
   async function sha256Hex(text) {
     const buf = await sha256Bytes(text);
-    return Array.from(buf).map(b => b.toString(16).padStart(2,'0')).join('');
+    return Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
   async function aesDecrypt(base64cipher, password, ivSeed) {
-    const keyBytes  = await sha256Bytes(password);               // 32 byte
-    const ivFull    = await sha256Bytes(ivSeed);
-    const iv        = ivFull.slice(0, 16);                       // 16 byte
+    const keyBytes = await sha256Bytes(password);
+    const ivFull   = await sha256Bytes(ivSeed);
+    const iv       = ivFull.slice(0, 16);
 
     const key = await crypto.subtle.importKey(
       'raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']
@@ -223,7 +260,11 @@
 
   /* ── UI ── */
   function aggiornaUI() {
+    // Monete: sempre aggiornate, indipendentemente dallo stato del server
+    document.getElementById('monete-label').textContent = `DRACME: ${leggiMonete()} 🪙`;
+
     if (!stato.dati) return;
+
     const dot = document.getElementById('server-dot');
     const lbl = document.getElementById('server-status-label');
     if (stato.dati.status_server === 'online') {
@@ -277,6 +318,8 @@
 
   /* ── Boot ── */
   async function boot() {
+    inizializzaPersistenza();
+    aggiornaUI(); // mostra subito le monete salvate
     stampaIntestazione();
     print('');
     print('[BOOT] Inizializzazione sistema...', 'system');
@@ -287,7 +330,7 @@
       const res = await fetch(RAW_URL + '?_=' + Date.now());
       if (!res.ok) throw new Error('HTTP ' + res.status);
       stato.dati = await res.json();
-      // LocalStorage ha priorità sul valore remoto
+      // LocalStorage ha sempre priorità — il JSON dà solo il valore iniziale assoluto
       const salvati = leggiTentativi();
       stato.tentativi = salvati !== null ? salvati : stato.dati.tentativi_disponibili;
       print('[OK]   Dati ricevuti da GitHub.', 'info');
@@ -322,8 +365,12 @@
     input.focus();
   }
 
-  /* ── Comandi ── */
+  /* ══════════════════════════════════════════════════════════════
+     DIZIONARIO COMANDI
+  ══════════════════════════════════════════════════════════════ */
   const COMANDI = {
+
+    /* ── help ─────────────────────────────────────────────────── */
     help() {
       print('');
       print('══════════════ COMANDI DISPONIBILI ══════════════', 'info');
@@ -334,10 +381,15 @@
       print('  ls                — lista file segreti (solo dopo sblocco)', 'info');
       print('  reload            — ricarica dati da GitHub', 'info');
       print('  clear             — pulisci terminale', 'info');
+      print('  inventory         — mostra le tue monete e gli oggetti acquistati', 'info');
+      print('  diary [args]      — accedi al diario delle sfide di Dedalo', 'info');
+      print('  shop [args]       — accedi al mercato automatizzato delle invenzioni', 'info');
+      print('  quests            — mostra l\'archivio delle linee di missioni attive', 'info');
       print('═════════════════════════════════════════════════', 'info');
       print('');
     },
 
+    /* ── status ───────────────────────────────────────────────── */
     async status() {
       if (!stato.dati) { print('[ERR] Nessun dato. Usa reload.', 'error'); return; }
       print('');
@@ -351,6 +403,7 @@
       print('');
     },
 
+    /* ── hack ─────────────────────────────────────────────────── */
     async hack(args) {
       if (!stato.dati) { print('[ERR] Nessun dato remoto. Usa reload prima.', 'error'); return; }
       if (isOffline()) { bloccatoOffline(); return; }
@@ -385,14 +438,13 @@
         return;
       }
 
-      // Codice corretto → decifro i dati segreti
       print('[DECRYPT] Decifratura dati in corso...', 'system');
       await new Promise(r => setTimeout(r, 500));
       try {
-        const premioPlain   = await aesDecrypt(stato.dati.premio_finale_enc,  codice, 'iv_premio');
-        const segretiPlain  = await aesDecrypt(stato.dati.file_segreti_enc,   codice, 'iv_segreti');
-        stato.premioFinale  = premioPlain;
-        stato.fileSegreti   = JSON.parse(segretiPlain);
+        const premioPlain  = await aesDecrypt(stato.dati.premio_finale_enc, codice, 'iv_premio');
+        const segretiPlain = await aesDecrypt(stato.dati.file_segreti_enc,  codice, 'iv_segreti');
+        stato.premioFinale = premioPlain;
+        stato.fileSegreti  = JSON.parse(segretiPlain);
       } catch(e) {
         print('[ERR] Errore durante la decifratura: ' + e.message, 'error');
         return;
@@ -409,6 +461,7 @@
       document.getElementById('unlock-overlay').classList.add('show');
     },
 
+    /* ── ls ───────────────────────────────────────────────────── */
     ls() {
       if (isOffline()) { bloccatoOffline(); return; }
       if (!stato.sbloccato) { print('[ERR] Sistema bloccato. Usa hack prima.', 'error'); return; }
@@ -419,6 +472,7 @@
       print('');
     },
 
+    /* ── cat ──────────────────────────────────────────────────── */
     cat(args) {
       if (isOffline()) { bloccatoOffline(); return; }
       if (!stato.sbloccato) { print('[ERR] Sistema bloccato. Usa hack prima.', 'error'); return; }
@@ -433,6 +487,7 @@
       print('');
     },
 
+    /* ── reload ───────────────────────────────────────────────── */
     async reload() {
       print('[INFO] Ricarico dati da GitHub...', 'system');
       stato.sbloccato = false;
@@ -460,12 +515,14 @@
       }
     },
 
+    /* ── clear ────────────────────────────────────────────────── */
     clear() {
       term.innerHTML = '';
       stampaIntestazione();
       stampaInfoBoot();
     },
 
+    /* ── master_reset ─────────────────────────────────────────── */
     async master_reset(args) {
       const pwd = args[0];
       if (!pwd) { print('[ERR] Uso: master_reset [codice]', 'error'); return; }
@@ -474,18 +531,267 @@
         print('[ERR] Codice di ripristino non valido.', 'error');
         return;
       }
+      // Reset chiave tentativi
       cancellaLocalStorage();
+      // Reset chiavi di progressione
+      salvaMonete(0);
+      salvaSfide([]);
+      salvaInventario([]);
+      // Reset stato in memoria
       stato.tentativi = stato.dati ? stato.dati.tentativi_disponibili : 10;
       stato.sbloccato = false;
       stato.fileSegreti = null;
       stato.premioFinale = null;
       aggiornaUI();
       print('');
-      print('[MASTER] LocalStorage cancellato. Tentativi ripristinati.', 'success');
+      print('[MASTER] LocalStorage cancellato. Profilo giocatore azzerato.', 'success');
       print(`[MASTER] Tentativi disponibili: ${stato.tentativi}`, 'success');
+      print('[MASTER] Dracme: 0 | Sfide risolte: 0 | Inventario: vuoto', 'success');
+      print('');
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       NUOVI COMANDI — SISTEMA PROGRESSIONE INTER-SESSIONE
+    ══════════════════════════════════════════════════════════ */
+
+    /* ── inventory ────────────────────────────────────────────── */
+    inventory() {
+      const monete     = leggiMonete();
+      const inventario = leggiInventario();
+      print('');
+      print('══════════════ INVENTARIO SEMIDEO ══════════════', 'info');
+      print(`  💰 DRACME DI BRONZO: ${monete}`, 'success');
+      print('────────────────────────────────────────────────', 'info');
+      if (inventario.length === 0) {
+        print('  [SISTEMA] Nessun prototipo acquisito nell\'arsenale.', 'system');
+        print('  Usa  shop  per esplorare il mercato delle invenzioni.', 'system');
+      } else {
+        print('  PROTOTIPI ACQUISITI:', 'info');
+        if (stato.dati && stato.dati.negozio_invenzioni) {
+          inventario.forEach(id => {
+            const item = stato.dati.negozio_invenzioni.find(i => i.id === id);
+            if (item) {
+              print(`  ⚙  [${item.id}] ${item.nome}`, 'secret');
+              print(`      ${item.descrizione}`, 'system');
+            } else {
+              print(`  ⚙  [${id}] (scheda tecnica non disponibile — usa reload)`, 'system');
+            }
+          });
+        } else {
+          inventario.forEach(id => print(`  ⚙  ${id}`, 'system'));
+          print('  (usa reload per caricare i dati del catalogo)', 'system');
+        }
+      }
+      print('═════════════════════════════════════════════════', 'info');
+      print('');
+    },
+
+    /* ── diary ────────────────────────────────────────────────── */
+    async diary(args) {
+      if (!stato.dati) { print('[ERR] Nessun dato remoto. Usa reload.', 'error'); return; }
+      if (!stato.dati.diario_sfide || !Array.isArray(stato.dati.diario_sfide)) {
+        print('[ERR] Archivio sfide non disponibile nel database remoto.', 'error');
+        return;
+      }
+
+      const sub = args[0] ? args[0].toLowerCase() : null;
+
+      /* ── diary (senza argomenti): catalogo sfide ── */
+      if (!sub) {
+        const sfideRisolte = leggiSfide();
+        print('');
+        print('══════════════ DIARIO DELLE SFIDE ══════════════', 'info');
+        stato.dati.diario_sfide.forEach(sfida => {
+          const risolto     = sfideRisolte.includes(sfida.id);
+          const statoTesto  = risolto ? '[RISOLTO] ' : '[CRIPTATO]';
+          const cls         = risolto ? 'success' : 'info';
+          print(`  [${sfida.id}] ${sfida.titolo}  ${statoTesto}`, cls);
+        });
+        print('═════════════════════════════════════════════════', 'info');
+        print('  diary read [id]         — leggi il testo di un enigma', 'system');
+        print('  diary solve [id] [risp] — decifra la risposta', 'system');
+        print('');
+        return;
+      }
+
+      /* ── diary read [id] ── */
+      if (sub === 'read') {
+        const id = args[1];
+        if (!id) { print('[ERR] Uso: diary read [id]', 'error'); return; }
+        const sfida = stato.dati.diario_sfide.find(s => s.id === id);
+        if (!sfida) { print(`[ERR] Sfida non trovata nel catalogo: "${id}"`, 'error'); return; }
+        const sfideRisolte = leggiSfide();
+        print('');
+        const sep = '─'.repeat(Math.max(0, 46 - sfida.titolo.length));
+        print(`── SFIDA [${sfida.id}]: ${sfida.titolo} ${sep}`, 'secret');
+        print('  ' + sfida.enigma, 'secret');
+        if (sfideRisolte.includes(sfida.id)) {
+          print('  ⚠ [SISTEMA] Sfida già risolta. Ricompensa già riscossa.', 'system');
+        }
+        print('─'.repeat(50), 'secret');
+        print('');
+        return;
+      }
+
+      /* ── diary solve [id] [risposta] ── */
+      if (sub === 'solve') {
+        if (isOffline()) { bloccatoOffline(); return; }
+        const id = args[1];
+        if (!id) { print('[ERR] Uso: diary solve [id] [risposta]', 'error'); return; }
+        const risposta = args.slice(2).join(' ').toLowerCase().trim();
+        if (!risposta) { print('[ERR] Inserisci una risposta dopo l\'ID.', 'error'); return; }
+
+        const sfida = stato.dati.diario_sfide.find(s => s.id === id);
+        if (!sfida) { print(`[ERR] Sfida non trovata nel catalogo: "${id}"`, 'error'); return; }
+
+        const sfideRisolte = leggiSfide();
+        if (sfideRisolte.includes(id)) {
+          print('[SISTEMA] Sfida già risolta. Ricompensa già riscossa.', 'system');
+          return;
+        }
+
+        print(`[DIARY] Elaborazione risposta in corso...`, 'system');
+        await new Promise(r => setTimeout(r, 500));
+        const hash = await sha256Hex(risposta);
+
+        if (hash !== sfida.soluzione_hash) {
+          print('[FAIL] Decifratura fallita. Risposta errata.', 'error');
+          print(`[HASH] ${hash}`, 'system');
+          return;
+        }
+
+        // Risposta corretta
+        sfideRisolte.push(id);
+        salvaSfide(sfideRisolte);
+        const moneteAttuali = leggiMonete();
+        const nuoveMonete   = moneteAttuali + (sfida.ricompensa || 0);
+        salvaMonete(nuoveMonete);
+        aggiornaUI();
+
+        print('');
+        print('████ ENIGMA DECIFRATO ████', 'success');
+        print(`  ✔ [${sfida.id}] ${sfida.titolo}`, 'success');
+        print(`  ✔ Ricompensa: +${sfida.ricompensa} Dracme di Bronzo`, 'success');
+        print(`  ✔ Saldo aggiornato: ${nuoveMonete} 🪙`, 'success');
+        print('  Usa  shop  per spendere le tue Dracme.', 'system');
+        print('');
+        return;
+      }
+
+      print(`[ERR] Sotto-comando sconosciuto: "${sub}".`, 'error');
+      print('  Usa: diary | diary read [id] | diary solve [id] [risposta]', 'system');
+    },
+
+    /* ── shop ─────────────────────────────────────────────────── */
+    async shop(args) {
+      if (!stato.dati) { print('[ERR] Nessun dato remoto. Usa reload.', 'error'); return; }
+      if (!stato.dati.negozio_invenzioni || !Array.isArray(stato.dati.negozio_invenzioni)) {
+        print('[ERR] Catalogo invenzioni non disponibile nel database remoto.', 'error');
+        return;
+      }
+
+      const sub = args[0] ? args[0].toLowerCase() : null;
+
+      /* ── shop (senza argomenti): bacheca catalogo ── */
+      if (!sub) {
+        const inventario = leggiInventario();
+        const monete     = leggiMonete();
+        print('');
+        print('══════════════ MERCATO DELLE INVENZIONI ══════════════', 'info');
+        print(`  💰 Il tuo saldo: ${monete} Dracme di Bronzo`, 'success');
+        print('──────────────────────────────────────────────────────', 'info');
+        stato.dati.negozio_invenzioni.forEach(item => {
+          const acquistato = inventario.includes(item.id);
+          print(`  [${item.id}] ${item.nome}`, 'secret');
+          print(`       ${item.descrizione}`, 'system');
+          if (acquistato) {
+            print(`       [ACQUISTATO]`, 'success');
+          } else {
+            print(`       Costo: ${item.costo} Dracme  |  shop buy ${item.id}`, 'info');
+          }
+          print('  ·', 'system');
+        });
+        print('══════════════════════════════════════════════════════', 'info');
+        print('');
+        return;
+      }
+
+      /* ── shop buy [id_oggetto] ── */
+      if (sub === 'buy') {
+        if (isOffline()) { bloccatoOffline(); return; }
+        const id = args[1];
+        if (!id) { print('[ERR] Uso: shop buy [id_oggetto]', 'error'); return; }
+
+        const item = stato.dati.negozio_invenzioni.find(i => i.id === id);
+        if (!item) { print(`[ERR] Oggetto non trovato nel catalogo: "${id}"`, 'error'); return; }
+
+        const inventario = leggiInventario();
+        if (inventario.includes(id)) {
+          print('[SISTEMA] Prototipo già presente nel tuo inventario.', 'system');
+          return;
+        }
+
+        const monete = leggiMonete();
+        if (monete < item.costo) {
+          print(`[ERR] Dracme insufficienti. Richieste: ${item.costo} | Disponibili: ${monete}`, 'error');
+          return;
+        }
+
+        const nuoveMonete = monete - item.costo;
+        salvaMonete(nuoveMonete);
+        inventario.push(id);
+        salvaInventario(inventario);
+        aggiornaUI();
+
+        print('');
+        print('████ ACQUISIZIONE COMPLETATA ████', 'success');
+        print(`  ⚙  ${item.nome} aggiunto all'inventario.`, 'success');
+        print(`  ✔ Costo: -${item.costo} Dracme | Saldo: ${nuoveMonete} 🪙`, 'success');
+        print('  Usa  quests  per sbloccare le zone di missione.', 'system');
+        print('');
+        return;
+      }
+
+      print(`[ERR] Sotto-comando sconosciuto: "${sub}".`, 'error');
+      print('  Usa: shop | shop buy [id_oggetto]', 'system');
+    },
+
+    /* ── quests ───────────────────────────────────────────────── */
+    quests() {
+      if (!stato.dati) { print('[ERR] Nessun dato remoto. Usa reload.', 'error'); return; }
+      if (!stato.dati.linee_quest || !Array.isArray(stato.dati.linee_quest)) {
+        print('[ERR] Archivio missioni non disponibile nel database remoto.', 'error');
+        return;
+      }
+
+      const inventario = leggiInventario();
+      print('');
+      print('══════════════ ARCHIVIO MISSIONI ══════════════', 'info');
+      stato.dati.linee_quest.forEach(quest => {
+        const sbloccata = inventario.includes(quest.requisito_item);
+        print(`  ▶ ${quest.titolo}`, 'secret');
+        if (sbloccata) {
+          print(`    STATUS: [SBLOCCATA]`, 'success');
+          print(`    ${quest.descrizione}`, 'info');
+          print(`    ⚡ MASTER GDR: ${quest.premio_gdr}`, 'success');
+        } else {
+          print(`    STATUS: [BLOCCATA]`, 'error');
+          // Risolve il nome dell'oggetto per un messaggio leggibile
+          let nomeItem = quest.requisito_item;
+          if (stato.dati.negozio_invenzioni) {
+            const item = stato.dati.negozio_invenzioni.find(i => i.id === quest.requisito_item);
+            if (item) nomeItem = `${item.nome} [${quest.requisito_item}]`;
+          }
+          print(`    ⛔ Strumento richiesto: ${nomeItem}`, 'error');
+          print(`    Acquista "${nomeItem}" nello shop per decodificare questa zona.`, 'system');
+        }
+        print('  ·', 'system');
+      });
+      print('═══════════════════════════════════════════════', 'info');
       print('');
     }
-  };
+
+  }; // fine COMANDI
 
   /* ── Input handler ── */
   input.addEventListener('keydown', async e => {
@@ -495,8 +801,8 @@
     if (!raw) return;
     print(`dedalo@labirinto:~$ ${raw}`, 'cmd');
     const parts = raw.split(/\s+/);
-    const cmd = parts[0].toLowerCase();
-    const args = parts.slice(1);
+    const cmd   = parts[0].toLowerCase();
+    const args  = parts.slice(1);
     if (COMANDI[cmd]) await COMANDI[cmd](args);
     else print(`[ERR] Comando sconosciuto: "${cmd}". Digita help.`, 'error');
   });
