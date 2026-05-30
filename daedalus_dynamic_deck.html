@@ -184,7 +184,7 @@
      Garantisce che diary/shop/quests/inventory non crashino offline.
      I campi enc sono vuoti: hack resta bloccato da isOffline() = true. ── */
   const DATI_DEFAULT = {
-    codice_segreto_hash: "f5ea2dd1e63e7252ba3c4c4fde679eebabc2c407237eaab933660182ea454cba",
+    codice_segreto_hash: "37df889efd442031f8614eb1e10ddbd95909b115c2f6c8e750fe2a6b3c074f54",
     status_server: "offline",
     tema_grafico: "standard",
     tentativi_disponibili: 10,
@@ -348,24 +348,30 @@
 
   function stampaQuartina() {
     print('');
-    print('╔══════════════════════════════════════════════════╗', 'secret');
-    print('║       == DISPOSITIVO DI SICUREZZA DEDALO ==      ║', 'secret');
-    print('╠══════════════════════════════════════════════════╣', 'secret');
-    print('║  Risolvi la quartina per trovare la chiave       ║', 'secret');
-    print('║  numerica a 4 cifre:                             ║', 'secret');
-    print('║                                                  ║', 'secret');
-    print('║  - Due fuggitivi sfidarono il calore del sole    ║', 'secret');
-    print('║    con ali di cera.                              ║', 'secret');
-    print('║  - Tre sono le Ore che vegliano sui cancelli     ║', 'secret');
-    print('║    dell\'Olimpo.                                  ║', 'secret');
-    print('║  - Sei i primi dèi che il tempo inghiottì prima  ║', 'secret');
-    print('║    della caduta dei Titani.                      ║', 'secret');
-    print('║  - Uno solo è l\'occhio del fabbro che strappa    ║', 'secret');
-    print('║    il fulmine alla folgore.                      ║', 'secret');
-    print('║                                                  ║', 'secret');
-    print('║  Unisci le risposte nell\'ordine della profezia   ║', 'secret');
-    print('║  e digita:  hack [codice]                        ║', 'secret');
-    print('╚══════════════════════════════════════════════════╝', 'secret');
+    print('╔════════════════════════════════════════════════════════╗', 'secret');
+    print('║        == DISPOSITIVO DI SICUREZZA DEDALO ==           ║', 'secret');
+    print('╠════════════════════════════════════════════════════════╣', 'secret');
+    print('║  Trova la chiave numerica a 4 cifre risolvendo        ║', 'secret');
+    print('║  i quattro enigmi:                                    ║', 'secret');
+    print('║                                                       ║', 'secret');
+    print('║  CIFRA 1: Tre scatole con etichette (1:"Oro",         ║', 'secret');
+    print('║  2:"Argento", 3:"Vuota"). Le scritte sono TUTTE false.║', 'secret');
+    print('║  Apri la scatola 2: dentro non c\'è nulla.             ║', 'secret');
+    print('║  Quale numero sovrasta l\'oro?                         ║', 'secret');
+    print('║                                                       ║', 'secret');
+    print('║  CIFRA 2: Quante lettere che corrispondono a numeri   ║', 'secret');
+    print('║  romani (I,L,V,C,X,M,D) ci sono nella frase          ║', 'secret');
+    print('║  "IL VECCHIO RE"?                                     ║', 'secret');
+    print('║                                                       ║', 'secret');
+    print('║  CIFRA 3: Prendi una corda chiusa a cerchio perfetto  ║', 'secret');
+    print('║  e fai 3 tagli netti. In quanti pezzi si divide?      ║', 'secret');
+    print('║                                                       ║', 'secret');
+    print('║  CIFRA 4: Gara tra A, B, C, D. A arriva prima di B.  ║', 'secret');
+    print('║  C arriva dopo D ma davanti ad A. Chi è ultimo?       ║', 'secret');
+    print('║  (1=A, 2=B, 3=C, 4=D)                                ║', 'secret');
+    print('║                                                       ║', 'secret');
+    print('║  Unisci le cifre e digita:  hack [codice]             ║', 'secret');
+    print('╚════════════════════════════════════════════════════════╝', 'secret');
     print('');
   }
 
