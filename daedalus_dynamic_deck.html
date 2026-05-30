@@ -178,10 +178,54 @@
 
   const MASTER_RESET_HASH = 'eef557c8d2be0744e03becf0215bbf82f71801308e5d89e3598ac45a2fa58e8c'; // password: 9911
 
+  /* ── Catalogo di fallback: usato quando il server è irraggiungibile ──
+     Garantisce che diary/shop/quests/inventory non crashino offline.
+     I campi enc sono vuoti: hack resta bloccato da isOffline() = true. ── */
+  const DATI_DEFAULT = {
+    codice_segreto_hash: "bc7d72722b512a249ff1bf5930b80f14690d79d6b2c2df9313db43b879ec3116",
+    status_server: "offline",
+    tema_grafico: "standard",
+    tentativi_disponibili: 10,
+    file_segreti_enc: "",
+    premio_finale_enc: "",
+    diario_sfide: [
+      {
+        id: "1",
+        titolo: "I Ponti di Creta",
+        enigma: "Ci sono 3 isole vicine nel mio laghetto privato. Ogni isola ha esattamente 3 ponti che la collegano alle altre o alla terraferma. Se un semideo parte dalla terraferma e attraversa i ponti senza mai ripassare due volte sullo stesso identico ponte, qual è il numero MASSIMO di ponti che può attraversare in totale prima di rimanere bloccato? (Rispondi solo con il numero a cifre)",
+        soluzione_hash: "4b43b0aee35624cd95b910189b3dc231d74c4157af082306121257341ea29011",
+        ricompensa: 30
+      }
+    ],
+    negozio_invenzioni: [
+      {
+        id: "bussola_icarus",
+        nome: "Bussola Geometrica di Icaro",
+        costo: 30,
+        descrizione: "Uno strumento in ottone e bronzo che non punta al Nord magnetico, ma rileva le anomalie di navigazione magica all'interno delle griglie di gioco."
+      },
+      {
+        id: "ingranaggio_perdice",
+        nome: "Ingranaggio Perpetuo di Perdice",
+        costo: 50,
+        descrizione: "Un piccolo congegno meccanico che si muove di moto perpetuo. Sembra emettere una debole frequenza radio-magica legata a vecchi archivi perduti."
+      }
+    ],
+    linee_quest: [
+      {
+        id: "quest_icaro_01",
+        titolo: "Frequenze Labirintiche",
+        requisito_item: "bussola_icarus",
+        descrizione: "Sbloccando la Bussola di Icaro, l'ago inizia a girare all'impazzata, stabilizzandosi su un vettore magico anomalo. Una firma energetica sconosciuta si sta muovendo nei sotterranei del Campo...",
+        premio_gdr: "[SBLOCCATO: Fornisci al Master il codice d'attivazione 'VECTOR-ICARUS' per avviare l'evento speciale in chat!]"
+      }
+    ]
+  };
+
   let stato = {
     sbloccato: false,
     tentativi: null,
-    dati: null,
+    dati: DATI_DEFAULT,   // fallback locale: mai null, mai sovrascrive il progresso utente
     fileSegreti: null,
     premioFinale: null
   };
@@ -312,6 +356,25 @@
       print('[WARN] Nessun dato remoto. Usa  reload  per connetterti.', 'error');
     }
     print('');
+    print('╔══════════════════════════════════════════════════╗', 'secret');
+    print('║       == DISPOSITIVO DI SICUREZZA DEDALO ==      ║', 'secret');
+    print('╠══════════════════════════════════════════════════╣', 'secret');
+    print('║  Risolvi la quartina per trovare la chiave       ║', 'secret');
+    print('║  numerica a 4 cifre:                             ║', 'secret');
+    print('║                                                  ║', 'secret');
+    print('║  - Due fuggitivi sfidarono il calore del sole    ║', 'secret');
+    print('║    con ali di cera.                              ║', 'secret');
+    print('║  - Tre sono le Ore che vegliano sui cancelli     ║', 'secret');
+    print('║    dell\'Olimpo.                                  ║', 'secret');
+    print('║  - Sei i primi dèi che il tempo inghiottì prima  ║', 'secret');
+    print('║    della caduta dei Titani.                      ║', 'secret');
+    print('║  - Uno solo è l\'occhio del fabbro che strappa    ║', 'secret');
+    print('║    il fulmine alla folgore.                      ║', 'secret');
+    print('║                                                  ║', 'secret');
+    print('║  Unisci le risposte nell\'ordine della profezia   ║', 'secret');
+    print('║  e digita:  hack [codice]                        ║', 'secret');
+    print('╚══════════════════════════════════════════════════╝', 'secret');
+    print('');
     print('Digita  help  per vedere i comandi disponibili.', 'system');
     print('');
   }
@@ -357,6 +420,11 @@
     } catch(e) {
       print('[ERR]  Impossibile raggiungere il server remoto.', 'error');
       print('[ERR]  ' + e.message, 'error');
+      print('[WARN] Catalogo locale di fallback attivato. Diary/Shop/Quests disponibili.', 'system');
+      // stato.dati è già DATI_DEFAULT: catalogo sempre accessibile
+      const salvati = leggiTentativi();
+      stato.tentativi = salvati !== null ? salvati : stato.dati.tentativi_disponibili;
+      aggiornaUI();
     }
 
     print('');
