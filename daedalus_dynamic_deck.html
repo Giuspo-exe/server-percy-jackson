@@ -616,23 +616,17 @@
         print('[ERR] Codice di ripristino non valido.', 'error');
         return;
       }
-      // Reset chiave tentativi
+      // Reset solo dei tentativi di hack — la progressione del giocatore è intoccabile
       cancellaLocalStorage();
-      // Reset chiavi di progressione
-      salvaMonete(0);
-      salvaSfide([]);
-      salvaInventario([]);
-      localStorage.removeItem(LS_PREMIO);
-      // Reset stato in memoria
       stato.tentativi = stato.dati ? stato.dati.tentativi_disponibili : 10;
       stato.sbloccato = false;
       stato.fileSegreti = null;
       stato.premioFinale = null;
       aggiornaUI();
       print('');
-      print('[MASTER] LocalStorage cancellato. Profilo giocatore azzerato.', 'success');
+      print('[MASTER] Tentativi di hack ripristinati.', 'success');
       print(`[MASTER] Tentativi disponibili: ${stato.tentativi}`, 'success');
-      print('[MASTER] Dracme: 0 | Sfide risolte: 0 | Inventario: vuoto', 'success');
+      print('[MASTER] Dracme, sfide e inventario invariati.', 'system');
       print('');
     },
 
