@@ -175,6 +175,7 @@
   const LS_MONETE     = 'dedalo_monete';
   const LS_SFIDE      = 'dedalo_sfide_risolte';
   const LS_INVENTARIO = 'dedalo_inventario';
+  const LS_PREMIO     = 'dedalo_premio_principale_riscosso';
 
   const MASTER_RESET_HASH = 'eef557c8d2be0744e03becf0215bbf82f71801308e5d89e3598ac45a2fa58e8c'; // password: 9911
 
@@ -523,14 +524,26 @@
       }
 
       stato.sbloccato = true;
-      print('');
-      print('████ ACCESSO CONCESSO ████', 'success');
-      print(`Premio: ${stato.premioFinale}`, 'success');
-      print('Usa  ls  per vedere i file segreti, poi  cat [nome]  per leggerli.', 'success');
-      print('');
       aggiornaUI();
-      document.getElementById('prize-text').textContent = '🏆 ' + stato.premioFinale;
-      document.getElementById('unlock-overlay').classList.add('show');
+
+      if (!localStorage.getItem(LS_PREMIO)) {
+        // Prima volta: mostra overlay e segna il premio come riscosso
+        localStorage.setItem(LS_PREMIO, 'true');
+        print('');
+        print('████ ACCESSO CONCESSO ████', 'success');
+        print(`Premio: ${stato.premioFinale}`, 'success');
+        print('Usa  ls  per vedere i file segreti, poi  cat [nome]  per leggerli.', 'success');
+        print('');
+        document.getElementById('prize-text').textContent = '🏆 ' + stato.premioFinale;
+        document.getElementById('unlock-overlay').classList.add('show');
+      } else {
+        // Premio già riscosso in sessione precedente: accesso silenzioso
+        print('');
+        print('████ ACCESSO CONCESSO ████', 'success');
+        print('Usa  ls  per vedere i file segreti, poi  cat [nome]  per leggerli.', 'success');
+        print('[INFO] Accesso concesso e file decifrati. Nota: Il modulo reliquia fisica è già stato riscosso in una sessione precedente.', 'system');
+        print('');
+      }
     },
 
     /* ── ls ───────────────────────────────────────────────────── */
@@ -609,6 +622,7 @@
       salvaMonete(0);
       salvaSfide([]);
       salvaInventario([]);
+      localStorage.removeItem(LS_PREMIO);
       // Reset stato in memoria
       stato.tentativi = stato.dati ? stato.dati.tentativi_disponibili : 10;
       stato.sbloccato = false;
